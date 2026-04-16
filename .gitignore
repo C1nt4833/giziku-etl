@@ -1,0 +1,71 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+*.egg-info/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Testing & Coverage
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.hypothesis/
+
+# Environment Variables & Credentials
+.env
+.env.local
+credentials.json
+service-account-key.json
+
+# Data & Logs
+*.log
+*.csv
+akg_raw.csv
+akg_indonesia_final.csv
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+
+# Misc
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
