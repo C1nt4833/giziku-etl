@@ -143,11 +143,6 @@ coverage report -m
 
 ## ⚠️ Important Notes
 
-### Kredensial & Security
-- File `credentials.json` tidak di-commit ke repository (ada di .gitignore)
-- Jangan share credentials ke public/insecure channels
-- Untuk team members: request credentials secara terpisah
-
 ### Data Source
 - Source URL: https://m.andrafarm.com/_andra.php?_i=daftar-akg
 - URL dapat berubah tanpa notifikasi - perlu monitoring berkala
@@ -167,20 +162,6 @@ coverage report -m
 | Google Sheets upload gagal | Cek credentials.json exist & memiliki akses ke spreadsheet |
 | CSV save error | Cek folder permissions, pastikan disk space cukup |
 | Test failure | Run `pip install -r requirements.txt` ulang untuk update dependencies |
-
-## 👥 Contributing
-
-1. Fork repository
-2. Buat feature branch (`git checkout -b feature/improvement`)
-3. Commit changes (`git commit -am 'Add improvement'`)
-4. Push ke branch (`git push origin feature/improvement`)
-5. Buat Pull Request
-
-### Coding Guidelines
-- Follow PEP 8 style guide
-- Add docstrings untuk semua functions/classes
-- Include unit tests untuk fitur baru
-- Maintain test coverage >85%
 
 ## 📄 License
 
