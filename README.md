@@ -25,7 +25,6 @@ GiziKu-ETL/
 │   ├── test_transform.py     # Unit tests untuk transform module
 │   └── __init__.py
 ├── akg_indonesia_final.csv   # Output file (CSV)
-├── akg_raw.csv               # Raw data backup
 ├── requirements.txt          # Python dependencies
 ├── .gitignore               # Git exclusion rules
 └── README.md                # Project documentation
@@ -41,7 +40,7 @@ GiziKu-ETL/
 
 1. Clone repository:
 ```bash
-git clone https://github.com/username/giziku-etl.git
+git clone https://github.com/C1nt4833/giziku-etl.git
 cd giziku-etl
 ```
 
