@@ -68,56 +68,43 @@ def fetch_content(url):
     except Exception as e:
         print(f"Error saat mengambil data: {e}")
         return None 
-
 def extract_nutrition_values(html_content):
-    """
-    Parse html dan ekstrak nilai nutrisi menggunakan regex patterns.
-    
-    PENTING:
-    - Regex mendukung format LOCALE INDONESIA (koma sebagai decimal separator)
-    - Contoh: "400,5 kkal" akan dikonversi menjadi 400.5
-    - Jika ada nilai tidak valid -> default 0.0 (jangan raise error)
-    - Pattern update: jika web mengubah format, update REGEX patterns di sini
-    """
-    if not html_content:
-        return None
-    
+    if not html_content: return None
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
-        page_text = soup.get_text(separator=" ")
-
-        # REGEX PATTERNS - Maintain dengan hati-hati
-        # Jika website berubah format, perlu update di sini dan test di test_extract.py
+        # Mencari semua baris atau elemen list yang mengandung data
+        items = soup.find_all(['li', 'tr', 'td']) 
+        full_text = " ".join([i.get_text(separator=" ") for i in items])
+        
+        # Gunakan Regex yang mengunci Nama Nutrisi hingga ke Angkanya
+        # Kita gunakan [:\s]+ untuk melewati titik dua dan spasi
         patterns = {
-            "energi": r"Energi.*?:\s*\+?([\d,.]+)\s*kkal",
-            "protein": r"Protein.*?:\s*\+?([\d,.]+)\s*g",
-            "karbohidrat": r"Karbohidrat.*?:\s*\+?([\d,.]+)\s*g",
-            "lemak": r"Lemak Total.*?:\s*\+?([\d,.]+)\s*g",
-            "serat": r"Serat.*?:\s*\+?([\d,.]+)\s*g",
-            "natrium": r"Natrium.*?:\s*\+?([\d,.]+)\s*mg",
-            "air": r"Air.*?:\s*\+?([\d,.]+)\s*ml"
+            "energi": r"Energi\s*\(Energy\)\s*[:\s]+\+?([\d,.]+)",
+            "protein": r"Protein\s*[:\s]+\+?([\d,.]+)",
+            "karbohidrat": r"Karbohidrat\s*\(total\).*?[:\s]+\+?([\d,.]+)",
+            "lemak": r"Lemak\s*Total\s*[:\s]+\+?([\d,.]+)",
+            "lemak_omega6": r"Lemak\s*Omega\s*6\s*[:\s]+\+?([\d,.]+)",
+            "lemak_omega3": r"Lemak\s*Omega\s*3\s*[:\s]+\+?([\d,.]+)",
+            "serat": r"Serat,.*?[:\s]+\+?([\d,.]+)",
+            "air": r"Air\s*\(Water\)\s*[:\s]+\+?([\d,.]+)",
+            "natrium": r"Natrium\s*\(Na\).*?[:\s]+\+?([\d,.]+)"
         }
 
         results = {}
         for key, pattern in patterns.items():
-            match = re.search(pattern, page_text, re.IGNORECASE | re.S)
+            match = re.search(pattern, full_text, re.IGNORECASE)
             if match:
-                # Konversi format lokal Indonesia: "400,5" -> 400.5
-                # Juga remove '+' sign jika ada (untuk Hamil/Menyusui yang ditambah)
-                val_str = match.group(1).replace(',', '.').replace('+', '').strip()
-                try:
-                    results[key] = float(val_str)
-                except ValueError:
-                    # Jika parsing gagal, set default 0.0 (safety net untuk data aneh)
-                    results[key] = 0.0
+                # Mengubah koma desimal Indonesia menjadi titik
+                val = match.group(1).replace(',', '.')
+                results[key] = float(val)
             else:
-                # Regex tidak menemukan pattern -> default 0.0
                 results[key] = 0.0
         return results
     except Exception as e:
-        print(f"Gagal parsing HTML: {e}")
+        # Ini akan menangkap TypeError dari BeautifulSoup dan mengembalikan None
+        print(f"Gagal parsing: {e}")
         return None
-
+    
 def run_extraction_pipeline(category_map):
     """
     Main orchestration function untuk scraping semua kategori AKG.
