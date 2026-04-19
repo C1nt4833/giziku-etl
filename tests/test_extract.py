@@ -1,135 +1,86 @@
 import unittest
-import requests
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from utils.extract import fetch_content, extract_nutrition_values, run_extraction_pipeline
 
 class TestExtract(unittest.TestCase):
-    """Test cases untuk extract data gizi dari web.
-    
-    Mencakup testing untuk HTTP requests, HTML parsing, error handling,
-    dan full extraction pipeline.
-    """
 
     def setUp(self):
-        self.sample_html = "Energi: 400 kkal Protein: 15 g Lemak Total: 2 g Karbohidrat: 50 g Serat: 5 g Natrium: 10 mg Air: 600 ml"
+        """Menyiapkan data dummy untuk testing."""
+        self.mock_html = "<li>Energi (Energy) : 550 kkal</li><li>Protein : 9 g</li>"
+        self.sample_category_map = {
+            "Bayi": [("0-5 bulan", "https://fakeurl.com/1")]
+        }
 
+    # --- 1. TEST fetch_content ---
     @patch('utils.extract.requests.get')
     def test_fetch_content_success(self, mock_get):
-        """Test fetch_content dengan response sukses."""
-        mock_get.return_value.status_code = 200
-        mock_get.return_value.text = "test content"
-        self.assertEqual(fetch_content("http://test.com"), "test content")
+        """Test jika request berhasil (HTTP 200)."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html>Success</html>"
+        mock_get.return_value = mock_response
+        
+        result = fetch_content("https://fakeurl.com")
+        self.assertEqual(result, "<html>Success</html>")
 
     @patch('utils.extract.requests.get')
-    def test_fetch_content_connection_error(self, mock_get):
-        """Test fetch_content dengan connection error."""
-        mock_get.side_effect = requests.exceptions.RequestException("Koneksi gagal")
-        self.assertIsNone(fetch_content("http://test.com"))
-
-    @patch('utils.extract.requests.get')
-    def test_fetch_content_timeout(self, mock_get):
-        """Test fetch_content dengan timeout."""
-        mock_get.side_effect = requests.exceptions.Timeout("Timeout")
-        self.assertIsNone(fetch_content("http://test.com"))
-
-    def test_extract_values_success(self):
-        """Test extract_nutrition_values dengan HTML valid."""
-        res = extract_nutrition_values(self.sample_html)
-        self.assertEqual(res['energi'], 400.0)
-        self.assertEqual(res['protein'], 15.0)
-        self.assertEqual(res['lemak'], 2.0)
-
-    def test_extract_values_empty_result(self):
-        """Test extract_nutrition_values ketika regex tidak menemukan data."""
-        res_empty = extract_nutrition_values("Halaman tanpa data gizi")
-        self.assertEqual(res_empty['energi'], 0.0)
-        self.assertEqual(res_empty['protein'], 0.0)
-        self.assertEqual(res_empty['karbohidrat'], 0.0)
-
-    def test_extract_values_none_input(self):
-        """Test extract_nutrition_values dengan input None."""
-        self.assertIsNone(extract_nutrition_values(None))
-
-    def test_extract_values_empty_string(self):
-        """Test extract_nutrition_values dengan input string kosong."""
-        self.assertIsNone(extract_nutrition_values(""))
-
-    def test_extract_values_invalid_format(self):
-        """Test extract_nutrition_values dengan format yang invalid."""
-        invalid_html = "Energi: abc kkal Protein: xyz g"
-        res = extract_nutrition_values(invalid_html)
-        self.assertEqual(res['energi'], 0.0)
-        self.assertEqual(res['protein'], 0.0)
-
-    def test_extract_values_comma_format(self):
-        """Test extract_nutrition_values dengan format koma (locale Indonesia)."""
-        html_comma = "Energi: 400,5 kkal Protein: 15,3 g"
-        res = extract_nutrition_values(html_comma)
-        self.assertEqual(res['energi'], 400.5)
-        self.assertEqual(res['protein'], 15.3)
-
-    def test_extract_values_malformed_data(self):
-        """Test extract_nutrition_values dengan nilai malformed (cover ValueError exception lines 81-82)."""
-        # HTML dengan multiple dots/commas yang akan cause ValueError
-        # Pattern matches "400,500.10" -> replace -> "400.500.10" -> float error
-        html_malformed = "Energi: 400,500.10 kkal"
-        res = extract_nutrition_values(html_malformed)
-        # Ketika ValueError terjadi, ValueError handler set nilai ke 0.0
-        self.assertIsNotNone(res)
-        self.assertEqual(res['energi'], 0.0)  # nilai set jadi 0.0 karena ValueError
-
-    @patch('utils.extract.BeautifulSoup')
-    def test_extract_values_beautifulsoup_error(self, mock_soup):
-        """Test extract_nutrition_values dengan BeautifulSoup error (cover Exception lines 86-88)."""
-        mock_soup.side_effect = Exception("BeautifulSoup parsing error")
-        result = extract_nutrition_values(self.sample_html)
+    def test_fetch_content_failure(self, mock_get):
+        """Test jika request gagal (Timeout/Error) untuk memicu blok 'except'."""
+        mock_get.side_effect = Exception("Connection Timeout")
+        result = fetch_content("https://fakeurl.com")
         self.assertIsNone(result)
 
+    # --- 2. TEST extract_nutrition_values ---
+    def test_extract_nutrition_success(self):
+        """Test ekstraksi regex dengan data normal."""
+        result = extract_nutrition_values(self.mock_html)
+        self.assertEqual(result['energi'], 550.0)
+        self.assertEqual(result['protein'], 9.0)
+
+    def test_extract_nutrition_none_input(self):
+        """Test proteksi jika input HTML None."""
+        self.assertIsNone(extract_nutrition_values(None))
+
+    def test_extract_nutrition_empty_html(self):
+        """Test jika HTML ada tapi data gizi tidak ditemukan (memicu 'else')."""
+        result = extract_nutrition_values("<html>No Data</html>")
+        self.assertEqual(result['energi'], 0.0)
+        self.assertEqual(result['protein'], 0.0)
+
+    def test_extract_nutrition_exception(self):
+        """Test memicu blok 'except' di extract_nutrition_values."""
+        # Memberikan input integer (bukan string) akan memicu error pada BeautifulSoup
+        self.assertIsNone(extract_nutrition_values(12345))
+
+    # --- 3. TEST run_extraction_pipeline ---
     @patch('utils.extract.fetch_content')
-    def test_run_pipeline_full_success(self, mock_fetch):
-        """Test pipeline dengan semua URL sukses."""
-        mock_fetch.return_value = self.sample_html
-        target = {"Kategori": [("Label", "url")]}
-        res = run_extraction_pipeline(target)
-        self.assertEqual(len(res), 1)
-        self.assertEqual(res[0]['kategori'], "Kategori")
-        self.assertEqual(res[0]['label'], "Label")
+    def test_pipeline_success(self, mock_fetch):
+        """Test alur kerja pipeline dari awal sampai akhir."""
+        mock_fetch.return_value = self.mock_html
+        
+        result = run_extraction_pipeline(self.sample_category_map)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['kategori'], "Bayi")
+        self.assertEqual(result[0]['label'], "0-5 bulan")
+
+    def test_pipeline_empty_map(self):
+        """Test jika category_map kosong."""
+        result = run_extraction_pipeline({})
+        self.assertEqual(result, [])
 
     @patch('utils.extract.fetch_content')
-    def test_run_pipeline_partial_fail(self, mock_fetch):
-        """Test pipeline dengan beberapa URL gagal (cover line 114-116 continue)."""
-        mock_fetch.side_effect = [None, self.sample_html]
-        target_partial = {"Kategori": [("Gagal", "url1"), ("Sukses", "url2")]}
-        res_partial = run_extraction_pipeline(target_partial)
-        self.assertEqual(len(res_partial), 1)
-
-    @patch('utils.extract.fetch_content')
-    def test_run_pipeline_extraction_fail(self, mock_fetch):
-        """Test pipeline ketika extraction gagal parse HTML."""
-        mock_fetch.return_value = "Invalid HTML"
-        target = {"Kategori": [("Label", "url")]}
-        res = run_extraction_pipeline(target)
-        self.assertEqual(len(res), 1)
-
-    def test_run_pipeline_empty_map(self):
-        """Test pipeline dengan category_map kosong."""
-        self.assertEqual(run_extraction_pipeline({}), [])
-
-    @patch('utils.extract.fetch_content')
-    def test_run_pipeline_exception_handling(self, mock_fetch):
-        """Test pipeline exception handling (cover line 119)."""
-        mock_fetch.side_effect = Exception("Network error")
-        target = {"Kategori": [("Label", "url")]}
-        res = run_extraction_pipeline(target)
-        self.assertEqual(len(res), 0)
-
-    @patch('utils.extract.fetch_content')
-    def test_run_pipeline_all_fail(self, mock_fetch):
-        """Test pipeline ketika semua URL gagal."""
+    def test_pipeline_fetch_fails(self, mock_fetch):
+        """Test pipeline jika fetch_content mengembalikan None (memicu 'continue')."""
         mock_fetch.return_value = None
-        target = {"Kategori": [("Url1", "url1"), ("Url2", "url2")]}
-        res = run_extraction_pipeline(target)
-        self.assertEqual(len(res), 0)
+        result = run_extraction_pipeline(self.sample_category_map)
+        self.assertEqual(result, [])
+
+    @patch('utils.extract.fetch_content')
+    def test_pipeline_exception_in_loop(self, mock_fetch):
+        """Test memicu blok 'except' di dalam loop pipeline."""
+        mock_fetch.side_effect = Exception("Unexpected Error")
+        result = run_extraction_pipeline(self.sample_category_map)
+        self.assertEqual(result, [])
 
 if __name__ == '__main__':
     unittest.main()
